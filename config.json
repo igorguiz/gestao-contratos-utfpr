@@ -1,10 +1,11 @@
 {
   "ug": "150148",
   "empresas": [
-    {
-      "nome": "ARCOLON",
-      "cnpj": "82395773000189",
-      "contrato": "A identificar"
-    }
+    {"nome": "ARCOLON", "cnpj": "82395773000189", "contrato": "18/2022"}
+  ],
+  "classificacoes_validadas": [
+    {"cnpj": "82395773000189", "contrato": "18/2022", "instrumento": "7", "categoria": "Serviços"},
+    {"cnpj": "82395773000189", "contrato": "18/2022", "instrumento": "142", "categoria": "Serviços"},
+    {"cnpj": "82395773000189", "contrato": "18/2022", "instrumento": "289", "categoria": "Materiais"}
   ]
 }
