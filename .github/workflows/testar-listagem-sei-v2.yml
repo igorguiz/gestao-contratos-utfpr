@@ -1,0 +1,133 @@
+name: Diagnosticar links de notas fiscais no SEI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnosticar-sei:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar bibliotecas
+        run: python -m pip install --disable-pip-version-check requests beautifulsoup4
+
+      - name: Localizar enderecos de PDFs no HTML do processo
+        shell: bash
+        run: |
+          python - <<'PY'
+          import html
+          import re
+          import sys
+          import time
+          from urllib.parse import urljoin, urlparse
+
+          import requests
+          from bs4 import BeautifulSoup
+
+          PROCESSO = (
+              'https://sei.utfpr.edu.br/sei/modulos/pesquisa/'
+              'md_pesq_processo_exibir.php?'
+              'iI3OtHvPArITY997V09rhsSkbDKbaYSycOHqqF2xsM0IaDkkEyJpus7kCPb435VNEAb16AAxmJKUdrsNWVIqQ81On4VzSUQQ8RvYnANh-v1u95GlOXhULO7esemKdXq0'
+          )
+          IDS = ['5492599', '5476495', '5492798']
+          PATH = 'md_pesq_documento_consulta_externa.php'
+          session = requests.Session()
+          session.headers.update({'User-Agent': 'UTFPR-consulta-documentos-publicos/0.1'})
+
+          def mask(value):
+              value = html.unescape(str(value))
+              value = re.sub(
+                  r'(md_pesq_documento_consulta_externa\.php\?)[^\s"\'<>)]{8,}',
+                  r'\1[PARAMETROS_OCULTOS]', value, flags=re.I,
+              )
+              return value[:200]
+
+          def urls_from(value):
+              if not isinstance(value, str):
+                  return []
+              value = html.unescape(value).replace('\\/', '/')
+              results = []
+              if PATH in value:
+                  # O SEI pode colocar a URL no href ou em window.open('...').
+                  matches = re.findall(
+                      r'(?:https?://sei\.utfpr\.edu\.br)?(?:/sei/modulos/pesquisa/)?'
+                      + re.escape(PATH) + r'\?[A-Za-z0-9_\-=&;%]+',
+                      value, flags=re.I,
+                  )
+                  results.extend(matches)
+              for quote, link in re.findall(r'window\.open\(\s*([\'\"])(.*?)\1', value, flags=re.I | re.S):
+                  if PATH in link:
+                      results.append(link)
+              return results
+
+          response = session.get(PROCESSO, timeout=35)
+          print('Processo SEI: 23064.037514/2022-95')
+          print('HTTP:', response.status_code)
+          print('Content-Type:', response.headers.get('Content-Type', 'ausente'))
+          print('Tamanho do HTML:', len(response.content), 'bytes')
+          response.raise_for_status()
+          soup = BeautifulSoup(response.content, 'html.parser')
+          valid_pdfs = 0
+          found_rows = 0
+          checked = set()
+          for doc_id in IDS:
+              print('\n=== Documento SEI', doc_id, '===')
+              rows = [tr for tr in soup.find_all('tr')
+                      if re.search(r'\b' + re.escape(doc_id) + r'\b', tr.get_text(' ', strip=True))]
+              print('Linhas contendo o ID:', len(rows))
+              if not rows:
+                  continue
+              found_rows += 1
+              row = rows[0]
+              print('Resumo da linha:', row.get_text(' ', strip=True)[:160])
+              candidates = []
+              for tag in row.find_all(True):
+                  for key, value in tag.attrs.items():
+                      if isinstance(value, list):
+                          value = ' '.join(value)
+                      if key in ('href', 'onclick', 'data-url', 'data-href'):
+                          print(f'  {tag.name}.{key}:', mask(value))
+                      candidates.extend(urls_from(value))
+              candidates = list(dict.fromkeys(candidates))
+              print('Possiveis URLs encontradas:', len(candidates))
+              for raw in candidates[:3]:
+                  u = urljoin(PROCESSO, raw)
+                  parsed = urlparse(u)
+                  if parsed.scheme != 'https' or parsed.hostname != 'sei.utfpr.edu.br' or PATH not in parsed.path:
+                      print('URL ignorada por seguranca (nao corresponde ao SEI publico).')
+                      continue
+                  if u in checked:
+                      continue
+                  checked.add(u)
+                  time.sleep(0.6)
+                  try:
+                      resp = session.get(u, timeout=30, headers={'Referer': PROCESSO})
+                      pdf = resp.content.startswith(b'%PDF-')
+                      print('  Teste:', resp.status_code,
+                            resp.headers.get('Content-Type', '?'),
+                            len(resp.content), 'bytes; PDF valido:', pdf)
+                      if pdf:
+                          valid_pdfs += 1
+                  except requests.RequestException as exc:
+                      print('  Erro na consulta:', type(exc).__name__)
+              if not candidates:
+                  print('Nao foi possivel extrair URL dessa linha; os atributos acima servirao para diagnostico.')
+
+          print('\nRESULTADO: documentos localizados na tabela:', found_rows)
+          print('RESULTADO: PDFs recuperados:', valid_pdfs)
+          if not found_rows:
+              print('IDs alvo nao localizados; verificar estrutura da tabela ou se os documentos sao publicos.')
+              sys.exit(2)
+          if not valid_pdfs:
+              print('Os IDs foram encontrados, mas nenhum PDF foi recuperado. Compartilhe o log dos atributos href/onclick.')
+              sys.exit(3)
+          print('A recuperacao automatica a partir da listagem funcionou em pelo menos um caso.')
+          PY
