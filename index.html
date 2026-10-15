@@ -1,1 +1,42 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#183153"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="assets/icon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"><title>Pagamentos — Gestão de Contratos UTFPR</title></head><body><header><div class="container"><div class="brand">▦ Gestão de Contratos</div><small>UTFPR · Campus Londrina · UG 150148</small></div></header><main class="container"><section class="intro"><h1>Pagamentos por nota e mês</h1><p>Valores brutos, com retenções incluídas. Serviços e materiais só são separados quando a classificação está validada.</p><div id="status" class="status">Carregando dados da CGU…</div></section><section class="controls"><label>Empresa<select id="empresa"><option value="">Todas</option></select></label><label>Ano do pagamento<select id="ano"><option value="">Todos</option></select></label><label>Mês<select id="mes"><option value="">Todos</option></select></label><button id="exportar">Exportar CSV</button></section><section class="metrics"><article><span>Serviços</span><strong id="servicos">—</strong></article><article><span>Materiais</span><strong id="materiais">—</strong></article><article><span>Não classificados</span><strong id="outros">—</strong></article><article><span>Total conciliado</span><strong id="total">—</strong></article></section><section class="tablearea"><h2>Pagamentos por mês</h2><div class="scroll"><table><thead><tr><th>Mês de pagamento</th><th>Serviços</th><th>Materiais</th><th>Não classificados</th><th>Total</th></tr></thead><tbody id="mensais"></tbody></table></div></section><section class="tablearea"><h2>Notas / instrumentos de cobrança</h2><p class="note">Agrupamento por empresa + contrato + instrumento. A numeração só é considerada nota fiscal quando validada documentalmente. A competência pode ser diferente do mês do pagamento.</p><div class="scroll"><table><thead><tr><th>Mês</th><th>Empresa / contrato</th><th>Instrumento</th><th>Categoria</th><th>Competência</th><th>Bruto</th><th>Documentos</th></tr></thead><tbody id="notas"></tbody></table></div></section><section class="tablearea"><h2>Pendências de conciliação</h2><p class="note">Documentos sem correspondência segura permanecem separados, fora dos totais conciliados, e não são descartados.</p><div id="pendentes-status" class="note"></div><div class="scroll"><table><thead><tr><th>Documento</th><th>Data</th><th>Valor</th><th>Motivo</th></tr></thead><tbody id="pendencias"></tbody></table></div></section><footer>Fonte: Portal da Transparência (CGU). Sem envio de chave ao navegador. Esta versão não calcula saldo de empenho.</footer></main><script src="app.js" defer></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#183153">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css"><title>Pagamentos | Gestão de Contratos UTFPR</title>
+</head>
+<body>
+<header><div class="container"><div class="brand">▦ Gestão de Contratos</div><small>UTFPR · Campus Londrina · UG 150148</small></div></header>
+<main class="container">
+<section class="intro"><h1>Pagamentos por nota fiscal e mês</h1>
+<p>Valor bruto pago, inclusive retenções. A natureza da despesa é confirmada pelo PDF fiscal público do SEI quando há correspondência exata com a CGU.</p>
+<div id="status" class="status">Carregando dados oficiais…</div>
+</section>
+<section class="controls" aria-label="Filtros de pagamento">
+<label>Empresa<select id="empresa"><option value="">Todas</option></select></label>
+<label>Ano de pagamento<select id="ano"><option value="">Todos</option></select></label>
+<label>Mês<select id="mes"><option value="">Todos</option></select></label>
+<button id="exportar">Exportar CSV</button>
+</section>
+<section class="metrics">
+<article><span>Serviços (NFs confirmadas)</span><strong id="servicos">—</strong></article>
+<article><span>Materiais (NFs confirmadas)</span><strong id="materiais">—</strong></article>
+<article><span>Não classificados</span><strong id="outros">—</strong></article>
+<article><span>Documentos pendentes</span><strong id="pend-total">—</strong></article>
+<article class="total-card"><span>Despesa bruta identificada na CGU</span><strong id="total">—</strong></article>
+</section>
+<section class="tablearea"><h2>Pagamentos por mês</h2>
+<p class="note">Os valores em "Pendente" são documentos de pagamento ainda não vinculados de forma segura. O total os inclui, sem duplicá-los.</p>
+<div class="scroll"><table><thead><tr><th>Mês</th><th>Serviços</th><th>Materiais</th><th>Não classificados</th><th>Pendentes</th><th>Total CGU</th></tr></thead><tbody id="mensais"></tbody></table></div></section>
+<section class="tablearea"><h2>Notas fiscais e cobranças</h2>
+<p class="note">Uma cobrança pode pagar mais de uma NF. Nesse caso, a OB/DR aparece vinculada às duas notas, mas os valores de cada NF são contabilizados uma só vez.</p>
+<div class="scroll"><table><thead><tr><th>Pagamento</th><th>Empresa / contrato</th><th>Nota / cobrança</th><th>Natureza</th><th>Emissão / competência</th><th>Valor bruto</th><th>Origem e documentos</th></tr></thead><tbody id="notas"></tbody></table></div></section>
+<section class="tablearea"><h2>Cobranças ainda sem conciliação fiscal</h2><p class="note">O pagamento existe na CGU, mas nenhuma combinação única de NFs públicas fechou exatamente o valor. Esses valores continuam em "Não classificados".</p><div id="pend-fiscal-status" class="note"></div>
+<div class="scroll"><table><thead><tr><th>Mês</th><th>Instrumento</th><th>Valor</th><th>Motivo</th></tr></thead><tbody id="pend-fiscal"></tbody></table></div></section>
+<section class="tablearea"><h2>Documentos financeiros pendentes</h2><p class="note">Documentos que não formaram uma cobrança segura são exibidos separadamente, mas incluídos no total financeiro identificado.</p><div id="pendentes-status" class="note"></div>
+<div class="scroll"><table><thead><tr><th>Documento</th><th>Data</th><th>Valor</th><th>Motivo</th></tr></thead><tbody id="pendencias"></tbody></table></div></section>
+<footer>Fontes: Portal da Transparência (CGU) e documentos fiscais públicos do SEI-UTFPR. A chave da CGU é usada apenas na automação. A classificação depende de conciliação documental. Não calcula saldos de empenho.</footer>
+</main>
+<script src="app.js" defer></script>
+</body></html>

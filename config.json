@@ -1,11 +1,17 @@
 {
   "ug": "150148",
   "empresas": [
-    {"nome": "ARCOLON", "cnpj": "82395773000189", "contrato": "18/2022"}
+    {
+      "nome": "ARCOLON",
+      "cnpj": "82395773000189",
+      "contrato": "18/2022",
+      "processos_sei": [
+        {
+          "numero": "23064.037514/2022-95",
+          "url_publica": "https://sei.utfpr.edu.br/sei/modulos/pesquisa/md_pesq_processo_exibir.php?iI3OtHvPArITY997V09rhsSkbDKbaYSycOHqqF2xsM0IaDkkEyJpus7kCPb435VNEAb16AAxmJKUdrsNWVIqQ81On4VzSUQQ8RvYnANh-v1u95GlOXhULO7esemKdXq0"
+        }
+      ]
+    }
   ],
-  "classificacoes_validadas": [
-    {"cnpj": "82395773000189", "contrato": "18/2022", "instrumento": "7", "categoria": "Serviços"},
-    {"cnpj": "82395773000189", "contrato": "18/2022", "instrumento": "142", "categoria": "Serviços"},
-    {"cnpj": "82395773000189", "contrato": "18/2022", "instrumento": "289", "categoria": "Materiais"}
-  ]
+  "sei_max_pdfs_por_empresa": 100
 }

@@ -1,1 +1,1 @@
-{"versao":2,"status":"pendente","atualizado_em":null,"ug":"150148","itens":[],"notas":[],"pendencias":[],"erros":[],"totais":{"documentos_pagamento":0,"documentos_conciliados":0,"documentos_pendentes":0}}
+{"versao":3,"atualizado_em":null,"status":"aguardando_sincronizacao","ug":"150148","itens":[],"notas":[],"cobrancas":[],"pendencias":[],"pendencias_fiscais":[],"totais_fiscais":{"notas_conciliadas":0,"cobrancas_sem_nf":0,"valor_classificado_centavos":0},"sei":{"estatisticas":{"status":"aguardando_sincronizacao","pdfs_lidos":0},"erros":[]}}

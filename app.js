@@ -1,14 +1,61 @@
-const base=new URL('.',location.href),$=id=>document.getElementById(id);let dados={notas:[],pendencias:[]};
+'use strict';
+const base=new URL('.',location.href),$=id=>document.getElementById(id);
+let dados={notas:[],pendencias:[],pendencias_fiscais:[]};
 const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const reais=c=>(Number(c||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const fetchJSON=async path=>{let r=await fetch(new URL(path,base),{cache:'no-store'});if(!r.ok)throw Error(`${path}: HTTP ${r.status}`);return r.json()};
-function filtrados(){return (dados.notas||[]).filter(n=>(!$('empresa').value||n.cnpj===$('empresa').value)&&(!$('ano').value||n.mes_pagamento.startsWith($('ano').value))&&(!$('mes').value||n.mes_pagamento.endsWith('-'+$('mes').value)))}
-function pendentes(){return (dados.pendencias||[]).filter(p=>(!$('empresa').value||p.cnpj===$('empresa').value)&&(!$('ano').value||(p.mes||'').startsWith($('ano').value))&&(!$('mes').value||(p.mes||'').endsWith('-'+$('mes').value)))}
-function render(){const notas=filtrados(),pend=pendentes(),soma=(a,pred)=>a.filter(pred).reduce((s,n)=>s+n.valor_bruto_centavos,0),s=soma(notas,n=>n.categoria==='Serviços'),m=soma(notas,n=>n.categoria==='Materiais'),u=soma(notas,n=>n.categoria==='Não classificado');$('servicos').textContent=reais(s);$('materiais').textContent=reais(m);$('outros').textContent=reais(u);$('total').textContent=reais(s+m+u);
-const meses=new Map();for(const n of notas){const t=meses.get(n.mes_pagamento)||{s:0,m:0,u:0};t[n.categoria==='Serviços'?'s':n.categoria==='Materiais'?'m':'u']+=n.valor_bruto_centavos;meses.set(n.mes_pagamento,t)}$('mensais').innerHTML=[...meses].sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>`<tr><td>${safe(k)}</td><td>${reais(v.s)}</td><td>${reais(v.m)}</td><td>${reais(v.u)}</td><td><strong>${reais(v.s+v.m+v.u)}</strong></td></tr>`).join('')||'<tr><td colspan="5">Sem pagamentos conciliados para este filtro.</td></tr>';
-$('notas').innerHTML=notas.map(n=>`<tr><td>${safe(n.mes_pagamento)}</td><td>${safe(n.empresa)}<small>${safe(n.contrato)}</small></td><td>${safe(n.instrumento)}<small>${safe(n.classificacao)}</small></td><td>${safe(n.categoria)}</td><td>${safe(n.competencia||'—')}</td><td><strong>${reais(n.valor_bruto_centavos)}</strong></td><td><details><summary>${n.documentos.length} documento(s)</summary>${n.documentos.map(d=>`<p class="doc">${safe(d.resumido)} · ${safe(d.data)} · ${reais(d.valor_centavos)}</p>`).join('')}</details></td></tr>`).join('')||'<tr><td colspan="7">Nenhuma cobrança identificada.</td></tr>';
-$('pendentes-status').textContent=`${pend.length} documento(s) requerem revisão para os filtros selecionados.`;$('pendencias').innerHTML=pend.map(p=>`<tr><td>${safe(p.resumido)}</td><td>${safe(p.data)}</td><td>${p.valor_centavos===null?'—':reais(p.valor_centavos)}</td><td>${safe(p.motivo)}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma pendência identificada.</td></tr>'}
-function csv(){const notas=filtrados();const cell=v=>'"'+String(v??'').replaceAll('"','""')+'"';const h=['empresa','cnpj','contrato','instrumento','categoria','competencia','mes_pagamento','valor_bruto_reais','valor_ob_reais','valor_dr_reais','documentos'];const lines=[h.join(';'),...notas.map(n=>[n.empresa,n.cnpj,n.contrato,n.instrumento,n.categoria,n.competencia,n.mes_pagamento,(n.valor_bruto_centavos/100).toFixed(2).replace('.',','),(n.valor_ob_centavos/100).toFixed(2).replace('.',','),(n.valor_dr_centavos/100).toFixed(2).replace('.',','),n.documentos.map(d=>d.resumido).join('|')].map(cell).join(';'))];let u=URL.createObjectURL(new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));let a=document.createElement('a');a.href=u;a.download='pagamentos-conciliados.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}
+const docUrl=u=>{try{const p=new URL(u);return p.protocol==='https:'&&p.hostname==='sei.utfpr.edu.br'&&p.pathname.endsWith('md_pesq_documento_consulta_externa.php')?p.href:null}catch{return null}};
+const fetchJSON=async path=>{const r=await fetch(new URL(path,base),{cache:'no-store'});if(!r.ok)throw Error(`${path}: HTTP ${r.status}`);return r.json()};
+const filtroEmpresa=x=>!$('empresa').value||x.cnpj===$('empresa').value;
+const filtroData=(x,k)=>{const mes=x[k]||'';return (!$('ano').value||mes.startsWith($('ano').value))&&(!$('mes').value||mes.endsWith('-'+$('mes').value))};
+const filtrados=()=>dados.notas.filter(n=>filtroEmpresa(n)&&filtroData(n,'mes_pagamento'));
+const pendentes=()=>dados.pendencias.filter(p=>filtroEmpresa(p)&&filtroData(p,'mes'));
+const pendFiscal=()=>dados.pendencias_fiscais.filter(n=>filtroEmpresa(n)&&filtroData(n,'mes_pagamento'));
+function render(){
+  const notas=filtrados(),pend=pendentes(),pf=pendFiscal();
+  const sum=arr=>arr.reduce((s,n)=>s+(Number(n.valor_bruto_centavos||0)),0);
+  const serv=sum(notas.filter(n=>n.categoria==='Serviços'));
+  const mat=sum(notas.filter(n=>n.categoria==='Materiais'));
+  const nc=sum(notas.filter(n=>n.categoria==='Não classificado'));
+  const pd=pend.reduce((s,n)=>s+(Number(n.valor_centavos||0)),0);
+  $('servicos').textContent=reais(serv);$('materiais').textContent=reais(mat);
+  $('outros').textContent=reais(nc);$('pend-total').textContent=reais(pd);$('total').textContent=reais(serv+mat+nc+pd);
+  const meses=new Map();const get=k=>{if(!meses.has(k))meses.set(k,{s:0,m:0,u:0,p:0});return meses.get(k)};
+  for(const n of notas){const t=get(n.mes_pagamento);t[n.categoria==='Serviços'?'s':n.categoria==='Materiais'?'m':'u']+=Number(n.valor_bruto_centavos||0)}
+  for(const p of pend){if(p.mes)get(p.mes).p+=Number(p.valor_centavos||0)}
+  $('mensais').innerHTML=[...meses].sort((a,b)=>a[0].localeCompare(b[0])).map(([k,t])=>`<tr><td>${safe(k)}</td><td>${reais(t.s)}</td><td>${reais(t.m)}</td><td>${reais(t.u)}</td><td>${reais(t.p)}</td><td><strong>${reais(t.s+t.m+t.u+t.p)}</strong></td></tr>`).join('')||'<tr><td colspan="6">Nenhum pagamento encontrado.</td></tr>';
+  $('notas').innerHTML=notas.map(n=>{
+    const isNF=n.tipo_registro==='nota_fiscal',url=docUrl(n.url_sei);
+    const rotulo=isNF?`NF ${safe(n.numero_nf)} <small>${safe(n.tipo_fiscal)} · SEI ${safe(n.documento_sei)}</small>`:`Cobrança ${safe(n.instrumento)} <small>Sem NF conciliada</small>`;
+    const link=url?`<a href="${safe(url)}" target="_blank" rel="noopener noreferrer">Abrir PDF público no SEI ↗</a>`:'<span class="muted">PDF não identificado</span>';
+    return `<tr><td>${safe(n.mes_pagamento)}</td><td>${safe(n.empresa)}<small>${safe(n.contrato)}</small></td>`+
+    `<td>${rotulo}</td><td>${safe(n.categoria)}</td><td>${safe(n.emissao||'—')}<small>Comp.: ${safe(n.competencia||'—')}</small></td><td><strong>${reais(n.valor_bruto_centavos)}</strong></td>`+
+    `<td>${link}<small>${safe(n.classificacao)}</small><details><summary>Instrumento ${safe(n.instrumento)} · ${n.documentos.length} documento(s) CGU</summary>`+
+    n.documentos.map(d=>`<p class="doc">${safe(d.resumido)} · ${safe(d.data)} · ${reais(d.valor_centavos)}</p>`).join('')+
+    `</details></td></tr>`;
+  }).join('')||'<tr><td colspan="7">Sem notas ou cobranças.</td></tr>';
+  $('pend-fiscal-status').textContent=`${pf.length} cobrança(s) sem conciliação fiscal para os filtros atuais.`;
+  $('pend-fiscal').innerHTML=pf.map(p=>`<tr><td>${safe(p.mes_pagamento)}</td><td>${safe(p.instrumento)}</td><td>${reais(p.valor_centavos)}</td><td>${safe(p.motivo)}</td></tr>`).join('')||'<tr><td colspan="4">Nenhuma cobrança fiscal pendente.</td></tr>';
+  $('pendentes-status').textContent=`${pend.length} documento(s) financeiros pendentes (${reais(pd)}).`;
+  $('pendencias').innerHTML=pend.map(p=>`<tr><td>${safe(p.resumido)}</td><td>${safe(p.data)}</td><td>${p.valor_centavos==null?'—':reais(p.valor_centavos)}</td><td>${safe(p.motivo)}</td></tr>`).join('')||'<tr><td colspan="4">Nenhum documento financeiro pendente.</td></tr>';
+}
+function csv(){
+  const cell=v=>'"'+String(v??'').replaceAll('"','""')+'"';
+  const header=['empresa','cnpj','contrato','instrumento','nota_fiscal','tipo_fiscal','documento_sei','categoria','emissao','competencia','mes_pagamento','valor_bruto_reais','situacao','url_sei','documentos_cgu'];
+  const lines=[header.join(';'),...filtrados().map(n=>[n.empresa,n.cnpj,n.contrato,n.instrumento,n.numero_nf,n.tipo_fiscal,n.documento_sei,n.categoria,n.emissao,n.competencia,n.mes_pagamento,(n.valor_bruto_centavos/100).toFixed(2).replace('.',','),n.classificacao,docUrl(n.url_sei)||'',n.documentos.map(d=>d.resumido).join('|')].map(cell).join(';'))];
+  const u=URL.createObjectURL(new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=u;a.download='pagamentos-notas-v03.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);
+}
 $('exportar').onclick=csv;['empresa','ano','mes'].forEach(id=>$(id).onchange=render);
-Promise.all([fetchJSON('config.json'),fetchJSON('data/resumo.json')]).then(([c,d])=>{if(d.versao!==2)throw Error('Arquivo de dados antigo. Execute a sincronização CGU da versão 0.2.');dados=d;for(const e of c.empresas){let o=document.createElement('option');o.value=e.cnpj;o.textContent=e.nome+' — '+e.cnpj;$('empresa').append(o)}const years=[...new Set((d.notas||[]).map(n=>n.mes_pagamento.slice(0,4)).concat((d.pendencias||[]).map(n=>(n.mes||'').slice(0,4))))].filter(Boolean).sort().reverse();for(const y of years){let o=document.createElement('option');o.value=y;o.textContent=y;$('ano').append(o)}for(let i=1;i<=12;i++){let o=document.createElement('option');o.value=String(i).padStart(2,'0');o.textContent=new Date(2026,i-1,1).toLocaleString('pt-BR',{month:'long'});$('mes').append(o)}$('status').textContent=`Atualizado: ${new Date(d.atualizado_em).toLocaleString('pt-BR')} · ${d.itens.length} documentos · ${d.notas.length} cobranças agrupadas · ${d.pendencias.length} documentos pendentes`;render()}).catch(e=>{$('status').textContent='Erro ao carregar: '+e.message});
-if('serviceWorker'in navigator)navigator.serviceWorker.register(new URL('service-worker.js',base)).catch(()=>{});
+Promise.all([fetchJSON('config.json'),fetchJSON('data/resumo.json')]).then(([config,d])=>{
+  if(d.versao!==3)throw Error('Arquivo de dados anterior à versão 0.3. Execute a nova sincronização no GitHub Actions.');
+  dados=d;
+  for(const e of config.empresas){const o=document.createElement('option');o.value=e.cnpj;o.textContent=e.nome+' — '+e.cnpj;$('empresa').append(o)}
+  const years=[...new Set(d.notas.map(n=>n.mes_pagamento.slice(0,4)).concat(d.pendencias.map(n=>(n.mes||'').slice(0,4))))].filter(Boolean).sort().reverse();
+  for(const y of years){const o=document.createElement('option');o.value=y;o.textContent=y;$('ano').append(o)}
+  for(let i=1;i<=12;i++){const o=document.createElement('option');o.value=String(i).padStart(2,'0');o.textContent=new Date(2026,i-1,1).toLocaleString('pt-BR',{month:'long'});$('mes').append(o)}
+  const st=d.sei?.estatisticas||{};
+  $('status').textContent=`Atualizado: ${new Date(d.atualizado_em).toLocaleString('pt-BR')} · CGU: ${d.itens.length} documentos · SEI: ${st.pdfs_lidos??0} PDFs fiscais lidos (${st.status??'sem diagnóstico'}) · ${d.totais_fiscais.notas_conciliadas} notas pagas conciliadas · ${d.pendencias.length} documentos financeiros pendentes`;
+  if(st.status!=='ok'){$('status').classList.add('status-warning')}
+  render();
+}).catch(e=>{$('status').textContent='Erro ao carregar: '+e.message;$('status').classList.add('status-warning')});
+if('serviceWorker' in navigator)navigator.serviceWorker.register(new URL('service-worker.js',base)).catch(()=>{});
