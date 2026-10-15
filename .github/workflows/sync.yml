@@ -1,0 +1,56 @@
+
+name: Consultar CGU e publicar PWA
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '25 10 * * *'
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  sync-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Sincronizar documentos CGU
+        env:
+          CGU_API_KEY: ${{ secrets.CGU_API_KEY }}
+          CGU_YEARS: '2026'
+        run: python scripts/sync.py
+
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Montar artefato público
+        run: |
+          mkdir -p _site/assets _site/data
+          cp index.html style.css app.js manifest.webmanifest service-worker.js config.json _site/
+          cp assets/icon.svg _site/assets/
+          cp data/resumo.json _site/data/
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v4
