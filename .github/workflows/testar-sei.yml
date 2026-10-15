@@ -1,0 +1,71 @@
+
+
+
+    
+  
+name: Testar acesso publico a NF 39 no SEI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  teste-sei:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Testar acesso ao PDF publico
+        shell: bash
+        run: |
+          python - <<'PY'
+          import http.cookiejar
+          import re
+          import urllib.error
+          import urllib.request
+          from html import unescape
+
+          URL = (
+              "https://sei.utfpr.edu.br/sei/modulos/pesquisa/"
+              "md_pesq_documento_consulta_externa.php?"
+              "9LibXMqGnN7gSpLFOOgUQFziRouBJ5VnVL5b7-UrE5QwCZo2zFzeEwi7eitOWsVmZtgCm0QUg_NBVrE1in83lrSWSmfkjuf1c94mjBw4Uf3hwCgk4R1lOOYmueaViFPT"
+          )
+          opener = urllib.request.build_opener(
+              urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+          )
+          request = urllib.request.Request(URL, headers={
+              "User-Agent": "Mozilla/5.0 (compatible; UTFPR-PWA-Teste/1.0)",
+              "Accept": "application/pdf,text/html,application/xhtml+xml,*/*",
+          })
+          try:
+              with opener.open(request, timeout=25) as response:
+                  body = response.read(15_000_000)
+                  status = response.status
+                  content_type = response.headers.get("Content-Type", "")
+                  disposition = response.headers.get("Content-Disposition", "")
+                  end_url = response.geturl()
+          except urllib.error.HTTPError as exc:
+              print("RESULTADO: HTTP", exc.code, "(o acesso automatizado nao foi confirmado)")
+              raise SystemExit(1)
+          except Exception as exc:
+              print("RESULTADO: Falha de rede:", type(exc).__name__, str(exc)[:250])
+              raise SystemExit(1)
+          print("Status HTTP:", status)
+          print("Tipo de conteudo:", content_type)
+          print("Content-Disposition:", disposition or "nao informado")
+          print("Bytes recebidos:", len(body))
+          print("URL final (sem parametros):", end_url.split("?", 1)[0])
+          if body[:1024].lstrip().startswith(b"%PDF-"):
+              print("RESULTADO: PDF recuperado automaticamente com sucesso!")
+          elif "pdf" in content_type.lower():
+              print("RESULTADO: Servidor indica PDF, mas a assinatura do arquivo nao foi confirmada.")
+              raise SystemExit(1)
+          else:
+              html = body[:100000].decode("utf-8", "replace")
+              titles = re.findall(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+              if titles:
+                  print("Titulo do HTML:", re.sub(r"\s+", " ", unescape(titles[0]))[:200])
+              print("RESULTADO: Uma pagina HTML foi retornada, nao o PDF. Precisamos verificar se o PDF e carregado por outro endereco ou via navegador.")
+              raise SystemExit(1)
+          PY
