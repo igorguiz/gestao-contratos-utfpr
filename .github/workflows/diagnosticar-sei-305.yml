@@ -1,0 +1,120 @@
+name: Diagnosticar NF 305 e NF 255 no SEI
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Obter codigo atual
+        uses: actions/checkout@v4
+
+      - name: Preparar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Instalar bibliotecas da versao 0.3
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Verificar localizacao leitura e conciliacao fiscal
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          import requests
+          sys.path.insert(0, str(Path('scripts').resolve()))
+          from sei import extrair_linhas_fiscais, parse_pdf
+
+          config = json.loads(Path('config.json').read_text(encoding='utf-8'))
+          ids_alvo = {'5878881': 'NF 305', '5878873': 'NF 255'}
+          s = requests.Session()
+          s.headers.update({'User-Agent': 'UTFPR-SEI-Diagnostico-Fiscal/0.3',
+                            'Accept': 'text/html,application/pdf'})
+          documentos_testados = {}
+
+          for empresa in config.get('empresas', []):
+              for processo in empresa.get('processos_sei', []):
+                  url = processo.get('url_publica', '')
+                  if not url.startswith('https://sei.utfpr.edu.br/sei/modulos/pesquisa/md_pesq_processo_exibir.php?'):
+                      print('URL publica do processo nao e valida; verifique config.json')
+                      continue
+                  print(f'\nPROCESSO {processo.get("numero", "nao informado")} | empresa {empresa.get("nome")}')
+                  resposta = s.get(url, timeout=35)
+                  print('HTML:', resposta.status_code, resposta.headers.get('Content-Type'), len(resposta.content), 'bytes')
+                  resposta.raise_for_status()
+                  if 'html' not in resposta.headers.get('Content-Type', '').lower():
+                      print('ERRO: link nao retornou HTML da listagem do processo')
+                      continue
+                  linhas = extrair_linhas_fiscais(resposta.content, url)
+                  print('Linhas de notas fiscais identificadas:', len(linhas))
+                  limite = int(config.get('sei_max_pdfs_por_empresa', 100))
+                  print('Limite atual de processamento por empresa:', limite)
+                  alvos = []
+                  for posicao, meta in enumerate(linhas):
+                      rotulo = meta.get('rotulo_sei', '')
+                      numero = meta.get('documento_sei', '')
+                      if numero in ids_alvo or re.search(r'\bNOTA\s+FISCAL\s+0*306\b', rotulo, re.I):
+                          alvos.append((posicao, meta))
+                  print('Documentos-alvo encontrados:', len(alvos))
+                  for posicao, meta in alvos:
+                      numero = meta['documento_sei']
+                      rotulo = meta.get('rotulo_sei', '')
+                      print('\n---------------------------')
+                      print('Documento SEI:', numero, '|', ids_alvo.get(numero, 'NF 306'))
+                      print('Descricao SEI:', rotulo[:140])
+                      print('Posicao na listagem:', posicao+1, 'de', len(linhas))
+                      print('Estaria entre os ultimos documentos do limite:', posicao >= max(0, len(linhas)-limite))
+                      endereco = meta.get('url')
+                      print('Link extraido:', bool(endereco))
+                      if not endereco:
+                          print('FALHA: link de PDF nao identificado no HTML')
+                          continue
+                      try:
+                          resposta_pdf = s.get(endereco, timeout=35, headers={'Referer': url})
+                          print('Resposta PDF:', resposta_pdf.status_code,
+                                resposta_pdf.headers.get('Content-Type'), len(resposta_pdf.content), 'bytes')
+                          resposta_pdf.raise_for_status()
+                          if len(resposta_pdf.content)>12_000_000:
+                              print('FALHA: PDF maior que limite de 12MB')
+                              continue
+                          if not resposta_pdf.content.startswith(b'%PDF-'):
+                              print('FALHA: conteudo nao comeca com assinatura de PDF')
+                              continue
+                          try:
+                              dados = parse_pdf(resposta_pdf.content, meta, empresa['cnpj'])
+                              documentos_testados[numero] = dados
+                              print('LEITURA OK: NF', dados['numero'], '|', dados['tipo_fiscal'],
+                                    '|', dados['categoria'], '| R$',
+                                    f'{dados["valor_centavos"]/100:,.2f}', '| emissao', dados['emissao'])
+                              print('Contrato extraido:', dados.get('contrato') or 'nao presente no PDF')
+                          except Exception as exc:
+                              print('FALHA NA LEITURA FISCAL:', type(exc).__name__, str(exc)[:350])
+                      except requests.RequestException as exc:
+                          print('FALHA NO DOWNLOAD:', type(exc).__name__, str(exc)[:230])
+
+          print('\n================ RESUMO ================')
+          bruto_agosto = 1602246  # centavos, conforme a tela do PWA
+          a = documentos_testados.get('5878881')
+          b = documentos_testados.get('5878873')
+          if a:
+              print('NF 305 reconhecida?', a['numero']=='305')
+              print('NF 305 isolada fecha R$ 16.022,46?', a['valor_centavos']==bruto_agosto)
+          if a and b:
+              print('NF 305 + NF 255 fecham R$ 16.022,46?',
+                    a['valor_centavos']+b['valor_centavos']==bruto_agosto)
+              print('Mesma data de emissao?', a['emissao']==b['emissao'])
+          if not a or not b:
+              print('Um ou ambos documentos nao foram interpretados; use os erros acima para corrigir a importacao.')
+          print('ATENCAO: valores so devem ser classificados se o total fiscal fechar exatamente com a cobranca CGU.')
+          PY
