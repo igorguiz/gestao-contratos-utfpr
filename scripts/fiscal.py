@@ -20,7 +20,7 @@ def conciliar_fiscal(cobrancas, notas_sei):
     """Somente composições de valor exato, exclusivas e com evidência fiscal.
 
     - 1 NF quando instrumento corresponde a número e total.
-    - Uma NF âncora mais até 2 NF-e no mesmo dia de emissão se a diferença
+    - Uma NF âncora mais até 2 notas do tipo complementar no mesmo dia de emissão se a diferença
       for exatamente a soma dessas notas, única, e elas não forem âncoras
       de outras cobranças.
     - Não trata instrumentos sem NF como materiais/serviços por suposição.
@@ -63,7 +63,7 @@ def conciliar_fiscal(cobrancas, notas_sei):
                 for j,outra in notas_index.items():
                     if j==i or j in ocupadas or j in ids_ancora: continue
                     if (outra['cnpj']==c['cnpj'] and outra.get('contrato') in (None,c['contrato'])
-                        and outra['tipo_fiscal']=='NF-e' and outra['emissao']==n['emissao']):
+                        and outra['tipo_fiscal']!=n['tipo_fiscal'] and outra['emissao']==n['emissao']):
                         mesma_emissao.append((j,outra['valor_centavos']))
                 for qtd in range(1,min(2,len(mesma_emissao))+1):
                     for comb in combinations(mesma_emissao,qtd):
