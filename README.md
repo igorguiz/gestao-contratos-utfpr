@@ -56,3 +56,16 @@ A rotina examina documentos incluídos no SEI a partir do ano anterior ao menor 
 No workflow GitHub Actions: `python -m pip install -r requirements.txt`, depois `python -m unittest discover -s tests -v`.
 
 O repositório ainda pode manter os workflows de diagnóstico já criados (`testar-sei.yml`, `testar-listagem-sei*.yml`). Eles não são necessários ao PWA v0.3, mas não interferem na atualização principal.
+
+## Correção v0.3.1 — DANFSe v2.0
+
+A leitura de notas de serviços foi ampliada para reconhecer o campo **VALOR DA OPERAÇÃO / SERVIÇO** na seção **VALOR TOTAL DA NFS-e**, além do antigo **Valor do Serviço**. Não interpreta valor líquido nem ISS retido como valor bruto quando o campo principal estiver ausente.
+
+Casos de regressão validados com PDFs fornecidos pela UTFPR:
+- NF 255, documento SEI 5878873: serviços R$ 15.502,66 (competência 07/2026)
+- NF-e 305, documento SEI 5878881: materiais R$ 519,80
+- Pagamento de agosto (cobrança CGU 305): R$ 16.022,46
+- NF 306, documento SEI 5988425: serviços R$ 16.279,16 (competência 08/2026; pagamento em outubro)
+
+### Publicação
+Substitua o `scripts/sei.py` da versão v0.3 e execute a rotina habitual no GitHub Actions. Para o pacote completo, substitua os arquivos preservando a hierarquia de pastas. O workflow e o secret `CGU_API_KEY` permanecem inalterados. Verifique a conciliação no site após a sincronização. Se o navegador mostrar uma versão antiga, abra em janela privativa ou atualize o cache do service worker.

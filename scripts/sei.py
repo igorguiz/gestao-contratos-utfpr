@@ -98,9 +98,17 @@ def parse_texto(texto, meta, cnpj_esperado=None):
             raise ValueError('não foi possível identificar número e emissão da NFS-e')
         numero, emissao = str(int(mt.group(1))), mt.group(2)
         # Primeiro valor sob o cabeçalho de tributação municipal "Valor do Serviço".
+        # DANFSe v1: 'Valor do Serviço'. DANFSe v2 (2026):
+        # 'VALOR DA OPERAÇÃO / SERVIÇO' na seção VALOR TOTAL DA NFS-e.
+        # Exigir rótulo e valor na mesma seção; nunca usar valor líquido/ISS
+        # como substituto silencioso para o bruto.
         mt_v = re.search(r'VALOR DO SERVICO[^\n]*\n\s*R\$\s*(' + NUM + r')', upper)
         if not mt_v:
-            raise ValueError('valor bruto de NFS-e não identificado')
+            secao = re.search(r'VALOR TOTAL DA NFS-E[^\n]*VALOR DA OPERACAO\s*/\s*SERVICO[^\n]*\n([^\n]{0,260})', upper)
+            if secao:
+                mt_v = re.search(r'R\$\s*(' + NUM + r')', secao.group(1))
+        if not mt_v:
+            raise ValueError('valor bruto de NFS-e não identificado (layouts v1/v2)')
         v = dinheiro(mt_v.group(1))
         comp = re.search(r'CONTRATO\s*N[.°ºO]*\s*(\d+\s*/\s*\d{4})', upper)
         competencia = re.search(r'\bMES\s+(?:DE\s+)?([A-Z]+)\s+(\d{4})', upper)
