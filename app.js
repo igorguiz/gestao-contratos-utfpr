@@ -5,12 +5,16 @@ const safe=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'
 const reais=c=>(Number(c||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const docUrl=u=>{try{const p=new URL(u);return p.protocol==='https:'&&p.hostname==='sei.utfpr.edu.br'&&p.pathname.endsWith('md_pesq_documento_consulta_externa.php')?p.href:null}catch{return null}};
 const fetchJSON=async path=>{const r=await fetch(new URL(path,base),{cache:'no-store'});if(!r.ok)throw Error(`${path}: HTTP ${r.status}`);return r.json()};
-const filtroEmpresa=x=>!$('empresa').value||x.cnpj===$('empresa').value;
+const filtroEmpresa=x=>Boolean($('empresa').value)&&x.cnpj===$('empresa').value;
 const filtroData=(x,k)=>{const mes=x[k]||'';return (!$('ano').value||mes.startsWith($('ano').value))&&(!$('mes').value||mes.endsWith('-'+$('mes').value))};
 const filtrados=()=>dados.notas.filter(n=>filtroEmpresa(n)&&filtroData(n,'mes_pagamento'));
 const pendentes=()=>dados.pendencias.filter(p=>filtroEmpresa(p)&&filtroData(p,'mes'));
 const pendFiscal=()=>dados.pendencias_fiscais.filter(n=>filtroEmpresa(n)&&filtroData(n,'mes_pagamento'));
 function render(){
+  const selecionada=Boolean($('empresa').value);
+  $('resultados').hidden=!selecionada;
+  $('titulo-relatorio').hidden=!selecionada;
+  if(!selecionada)return;
   const notas=filtrados(),pend=pendentes(),pf=pendFiscal();
   const sum=arr=>arr.reduce((s,n)=>s+(Number(n.valor_bruto_centavos||0)),0);
   const serv=sum(notas.filter(n=>n.categoria==='Serviços'));

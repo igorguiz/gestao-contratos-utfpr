@@ -9,16 +9,17 @@
 <body>
 <header><div class="container"><div class="brand">▦ Gestão de Contratos</div><small>UTFPR · Campus Londrina · UG 150148</small></div></header>
 <main class="container">
-<section class="intro"><h1>Pagamentos por nota fiscal e mês</h1>
-<p>Valor bruto pago, inclusive retenções. A natureza da despesa é confirmada pelo PDF fiscal público do SEI quando há correspondência exata com a CGU.</p>
-<div id="status" class="status">Carregando dados oficiais…</div>
+<section class="intro"><div id="titulo-relatorio" hidden><h1>Pagamentos por nota fiscal e mês</h1>
+<p>Valor bruto pago, inclusive retenções. A natureza da despesa é confirmada pelo PDF fiscal público do SEI quando há correspondência exata com a CGU.</p></div>
+<div id="status" class="status" role="status" aria-live="polite">Carregando dados oficiais…</div>
 </section>
 <section class="controls" aria-label="Filtros de pagamento">
-<label>Empresa<select id="empresa"><option value="">Todas</option></select></label>
+<label>Empresa<select id="empresa"><option value="">Selecione uma empresa</option></select></label>
 <label>Ano de pagamento<select id="ano"><option value="">Todos</option></select></label>
 <label>Mês<select id="mes"><option value="">Todos</option></select></label>
-<button id="exportar">Exportar CSV</button>
 </section>
+<div id="resultados" hidden>
+<div class="acoes"><button id="exportar">Exportar CSV</button></div>
 <section class="metrics">
 <article><span>Serviços (NFs confirmadas)</span><strong id="servicos">—</strong></article>
 <article><span>Materiais (NFs confirmadas)</span><strong id="materiais">—</strong></article>
@@ -36,7 +37,8 @@
 <div class="scroll"><table><thead><tr><th>Mês</th><th>Instrumento</th><th>Valor</th><th>Motivo</th></tr></thead><tbody id="pend-fiscal"></tbody></table></div></section>
 <section class="tablearea"><h2>Documentos financeiros pendentes</h2><p class="note">Documentos que não formaram uma cobrança segura são exibidos separadamente, mas incluídos no total financeiro identificado.</p><div id="pendentes-status" class="note"></div>
 <div class="scroll"><table><thead><tr><th>Documento</th><th>Data</th><th>Valor</th><th>Motivo</th></tr></thead><tbody id="pendencias"></tbody></table></div></section>
+</div>
 <footer>Fontes: Portal da Transparência (CGU) e documentos fiscais públicos do SEI-UTFPR. A chave da CGU é usada apenas na automação. A classificação depende de conciliação documental. Não calcula saldos de empenho.</footer>
 </main>
-<script src="app.js" defer></script>
+<script src="app.js?v=033" defer></script>
 </body></html>

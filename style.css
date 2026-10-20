@@ -6,3 +6,7 @@ a { color:#15568a; }
 .metrics { grid-template-columns: repeat(auto-fit,minmax(175px,1fr)); }
 .total-card { border-color:#9eb4d4!important; }
 .total-card strong { font-size:1.52rem; }
+
+/* Tela inicial: sem empresa selecionada, não exibir relatórios. */
+[hidden]{display:none!important}
+.acoes{display:flex;justify-content:flex-end;margin:0 0 12px}
