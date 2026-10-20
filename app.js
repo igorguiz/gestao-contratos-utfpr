@@ -58,7 +58,7 @@ Promise.all([fetchJSON('config.json'),fetchJSON('data/resumo.json')]).then(([con
   for(const y of years){const o=document.createElement('option');o.value=y;o.textContent=y;$('ano').append(o)}
   for(let i=1;i<=12;i++){const o=document.createElement('option');o.value=String(i).padStart(2,'0');o.textContent=new Date(2026,i-1,1).toLocaleString('pt-BR',{month:'long'});$('mes').append(o)}
   const st=d.sei?.estatisticas||{};
-  $('status').textContent=`Atualizado: ${new Date(d.atualizado_em).toLocaleString('pt-BR')} · CGU: ${d.itens.length} documentos · SEI: ${st.pdfs_lidos??0} PDFs fiscais lidos (${st.status??'sem diagnóstico'}) · ${d.totais_fiscais.notas_conciliadas} notas pagas conciliadas · ${d.pendencias.length} documentos financeiros pendentes`;
+  $('status').textContent=`Atualizado: ${(d.atualizado_em ? new Date(d.atualizado_em).toLocaleString('pt-BR') : 'aguardando primeira sincronização')} · CGU: ${d.itens.length} documentos · SEI: ${st.pdfs_lidos??0} PDFs fiscais lidos (${st.status??'sem diagnóstico'}) · ${d.totais_fiscais.notas_conciliadas} notas pagas conciliadas · ${d.pendencias.length} documentos financeiros pendentes`;
   if(st.status!=='ok'){$('status').classList.add('status-warning')}
   render();
 }).catch(e=>{$('status').textContent='Erro ao carregar: '+e.message;$('status').classList.add('status-warning')});

@@ -53,6 +53,30 @@ class Tests(unittest.TestCase):
         self.assertEqual(sum(n['valor_bruto_centavos'] for n in fisc['notas']),1499869)
         self.assertEqual(fisc['pendencias_fiscais'],[])
 
+    def test_aug_material_anchor_plus_service_note(self):
+        docs=[doc('2026OB002038','10/08/2026','15.358,95',BASE.format('305','07/2026')),
+              doc('2026DR800078','10/08/2026','663,51',BASE.format('305','07/2026'))]
+        g=conciliar(docs,CFG)
+        self.assertEqual(g['cobrancas'][0]['valor_bruto_centavos'],1602246)
+        f=conciliar_fiscal(g['cobrancas'],[
+            nf('305',51980,'Materiais','04/08/2026','5878881'),
+            nf('255',1550266,'Serviços','04/08/2026','5878873')])
+        self.assertEqual(len(f['notas']),2)
+        self.assertEqual({n['categoria']:n['valor_bruto_centavos'] for n in f['notas']},
+                         {'Serviços':1550266,'Materiais':51980})
+        self.assertFalse(f['pendencias_fiscais'])
+
+    def test_ambiguous_complementary_notes_not_assigned(self):
+        docs=[doc('2026OB002038','10/08/2026','15.358,95',BASE.format('305','07/2026')),
+              doc('2026DR800078','10/08/2026','663,51',BASE.format('305','07/2026'))]
+        g=conciliar(docs,CFG)
+        f=conciliar_fiscal(g['cobrancas'],[
+            nf('305',51980,'Materiais','04/08/2026','5878881'),
+            nf('255',1550266,'Serviços','04/08/2026','5878873'),
+            nf('777',1550266,'Serviços','04/08/2026','5879999')])
+        self.assertEqual(f['notas'][0]['categoria'],'Não classificado')
+        self.assertEqual(len(f['pendencias_fiscais']),1)
+
     def test_april_separate_ob(self):
         docs=[doc('2026OB000853','15/04/2026','15.732,20',BASE.format('142','03/2026')),
               doc('2026DR800035','13/04/2026','677,73','RETENCAO SOBRE PAGTO DO(S) INSTR.(S) DE COBRANCA(S) NUM.(S): 142, CONTRATO Nº: 00018/2022'),
