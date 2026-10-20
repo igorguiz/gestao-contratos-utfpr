@@ -78,6 +78,21 @@ def main():
         raise SystemExit(1)  # Não publica dados CGU parciais
 
     grupos=conciliar(itens,CONFIG)
+    # Alguns CNPJs têm mais de um contrato na mesma UG.
+    # O filtro é aplicado depois de associar OB e DR, porque a DR pode
+    # omitir o número contratual e só obter esse vínculo pela OB.
+    escopos = {e['cnpj']: e['contrato'] for e in CONFIG['empresas']
+               if e.get('filtrar_contrato')}
+    if escopos:
+        grupos['cobrancas'] = [c for c in grupos['cobrancas']
+            if c['cnpj'] not in escopos or c['contrato'] == escopos[c['cnpj']]]
+        # Pendências sem contrato identificado continuam fora do total do
+        # contrato específico; não podem ser atribuídas por suposição.
+        grupos['pendencias'] = [d for d in grupos['pendencias']
+            if d['cnpj'] not in escopos or d.get('contrato') == escopos[d['cnpj']]]
+        grupos['totais']['documentos_agrupados'] = sum(len(c['documentos']) for c in grupos['cobrancas'])
+        grupos['totais']['documentos_pendentes'] = len(grupos['pendencias'])
+        grupos['totais']['valor_pendente_centavos'] = sum(d.get('valor_centavos') or 0 for d in grupos['pendencias'])
     sei=buscar_notas(CONFIG,YEARS)
     fiscal=conciliar_fiscal(grupos['cobrancas'],sei['notas'])
     # Invariantes de conservação contábil: nunca duplicar ou perder valores
