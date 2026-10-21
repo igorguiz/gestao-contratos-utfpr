@@ -15,14 +15,18 @@
     {
       "nome": "SOBENO SERVIÇOS PARA ELEVADORES LTDA",
       "cnpj": "25201004000169",
-      "contrato": "20/2023",
+      "contrato": "29/2023",
       "filtrar_contrato": true,
       "processos_sei": [
         {
           "numero": "",
           "url_publica": "https://sei.utfpr.edu.br/sei/modulos/pesquisa/md_pesq_processo_exibir.php?iI3OtHvPArITY997V09rhsSkbDKbaYSycOHqqF2xsM0IaDkkEyJpus7kCPb435VNEAb16AAxmJKUdrsNWVIqQ6dizHzVYps7jNKYK0X1mbp1MAPGi_DufoDWezgMJDc5"
         }
-      ]
+      ],
+      "numero_compra": "20/2023",
+      "id_comprasnet": 226065,
+      "processo_contrato": "23064.048596/2023-84",
+      "ug_origem_contrato": "153176"
     }
   ],
   "sei_max_pdfs_por_empresa": 100
